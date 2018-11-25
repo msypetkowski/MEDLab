@@ -8,6 +8,27 @@ download.file('http://staff.ii.pw.edu.pl/~gprotazi/dydaktyka/dane/diab_trans.dat
 #wczytanie danych do ramki danych
 diab.df <- read.csv("diab_trans.data", header=TRUE, stringsAsFactors = FALSE)
 
+# 1. Najleprze reguły =====================================================
+
+# TODO
+
+# 2. Pre-processing =====================================================
+
+# Wybieramy te pomiary co występują dostatecznie często
+table(diab.df$code)
+# pomijamy id występujące mniej niż 1000 razy, oraz te bez wyjaśnienia czym są 
+# (https://archive.ics.uci.edu/ml/datasets/diabetes)
+
+# pozostają nam pomiary
+# 33 = Regular insulin dose
+# 34 = NPH insulin dose
+# 35 = UltraLente insulin dose
+# 48 = Unspecified blood glucose measurement
+# 58 = Pre-breakfast blood glucose measurement
+# 60 = Pre-lunch blood glucose measurement
+# 62 = Pre-supper blood glucose measurement
+
+
 #każdą ze zmiennych ciągłych poddano dyskretyzacji dzieląc ją na przedziały
 #dla pomiarów które analizujemy ważne jest czy wyniki znajdują się w określonych zakresach 
 #przykładowo norma poziomu glukozy we krwi przed śniadaniem jest określona jako <100, natomiast wartości z zakresu 70-130 
@@ -15,25 +36,31 @@ diab.df <- read.csv("diab_trans.data", header=TRUE, stringsAsFactors = FALSE)
 #zmienne podzielono na przedziały tak, aby umożliwiały rozróżnienie poszczególnych stanów - 'norma', 'podwyższony' określonych przez Joslin Diabetes Center
 #Dzięki temu będzie możliwe skostruowanie reguł sekwencyjnych w oparciu o przedziały, a nie dokładne wartości liczbowe.
 mask <- (diab.df$code=='id_33')
-insData = diab.df[mask,]
-insData$value <- cut(insData$value, c(0,6,7, +Inf), labels = c("lowIns", "medIns", "highIns"))
+data33 = diab.df[mask,]
+data33$value <- cut(data33$value, c(0,6,7, +Inf), labels = c("low", "med", "high"))
 
 mask <- (diab.df$code=='id_58')
-bbreakfastData = diab.df[mask,]
-bbreakfastData$value <- cut(bbreakfastData$value, c(0,70,100,130, +Inf), labels = c("br1", "br2", "br3", "br4"))
+data58 = diab.df[mask,]
+data58$value <- cut(data58$value, c(0,70,100,130, +Inf), labels = c("low", "mlow", "mhigh", "high"))
+
+mask <- (diab.df$code=='id_60')
+data60 = diab.df[mask,]
+data60$value <- cut(data60$value, c(0,70,110,130, +Inf), labels = c("low", "mlow", "mhigh", "high"))
 
 mask <- (diab.df$code=='id_62')
-supperData = diab.df[mask,]
-supperData$value <- cut(supperData$value, c(0,70,110,130, +Inf), labels = c("lun1", "lun2", "lun3", "lun4"))
+data62 = diab.df[mask,]
+data62$value <- cut(data62$value, c(0,70,110,130, +Inf), labels = c("low", "mlow", "mhigh", "high"))
 
-#z uwagi na to, że zdarzenia o id=48 nie miały określonych progów norm, porównano histogramy podobnych 
+#z uwagi na to, że zdarzenia o id=48 nie miały określonych progów norm 
+# (https://www.joslin.org/info/goals_for_blood_glucose_control.html), porównano histogramy podobnych 
 #zmiennych i wybrano taką samą dyskretyzację jak dla zdarzeń o id=62
 hist(diab.df[diab.df$code=='id_48',]$value)
 hist(diab.df[diab.df$code=='id_62',]$value)
 hist(diab.df[diab.df$code=='id_58',]$value)
 mask <- (diab.df$code=='id_48')
-unknownData = diab.df[mask,]
-unknownData$value <- cut(unknownData$value, c(0,70,110,130, +Inf), labels = c("unk1", "unk2", "unk3", "unk4"))
+data48 = diab.df[mask,]
+data48$value <- cut(data48$value, c(0,70,110,130, +Inf), labels = c("low", "mlow", "mhigh", "high"))
+
 
 #zdarzenia o id=34 miały inny rozkład wartości niż pozostałe zmienne, dlatego zdecydowano o doborze przedziałów na podstawie histogramu zmiennej
 #wstępna analiza wykazała występowanie tzw. outlier-ów, czyli wartości odstających od większości. Były to niewielka grupa obserwacji o wartości >50
@@ -41,11 +68,11 @@ unknownData$value <- cut(unknownData$value, c(0,70,110,130, +Inf), labels = c("u
 print(unique(diab.df[which(diab.df$code=='id_34' & diab.df$value),]$value))
 hist(diab.df[which(diab.df$code=='id_34' & diab.df$value<50),]$value)
 mask <- (diab.df$code=='id_34')
-nphData = diab.df[mask,]
-nphData$value <- cut(nphData$value, c(0,10,25,40, +Inf), labels = c("nph1", "nph2", "nph3", "nph4"))
+data34 = diab.df[mask,]
+data34$value <- cut(data34$value, c(0,10,25,40, +Inf), labels = c("low", "mlow", "mhigh", "high"))
 
 #po dyskretyzacji każdej ze zmiennych dokonano złączenia zbiorów 
-diab.df <- rbind(insData, bbreakfastData, supperData, unknownData, nphData)
+diab.df <- rbind(data33, data34, data48, data58, data60, data62)
 
 #jako transakcję traktowano powiązane ze sobą id zdarzenia oraz wartość przedziałową zdarzenia
 #w tym celu dokonano połączenia id zdarzenia oraz wartość poprzez sklejenie wartości tekstowych
@@ -66,6 +93,12 @@ write.table(diab.df, "diab_trans2.data", sep = "," , row.names = FALSE, col.name
 #?read_baskets
 diabSeq <- read_baskets(con = "diab_trans2.data", sep =",", info = c("sequenceID","eventID"))
 View(as(diabSeq,"data.frame"))
+
+
+# 3. Eksperymenty =======================================================
+
+# TODO : update section
+
 
 #ustawienie parametrów
 # w 1 iteracji wykonujemy algorytm z domyślnymi parametrami
@@ -144,3 +177,8 @@ inspect(head(seqRules,20))
 # w wynikach pojawiły się reguły krótsze niż wcześniej. Być może przyjęty support 0.8 jest zbyt silnym ograniczeniem.
 # poza tym pogorszyły się także wyniki liftu z 1.5 do ok 1.05, co oznacza pogorszenie jakości predykcyjnej 
 # w następnej iteracji został zmniejszony próg liftu
+
+
+# 4. Wnioski ==============================================
+
+# TODO
