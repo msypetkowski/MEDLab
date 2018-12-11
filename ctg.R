@@ -31,21 +31,57 @@ getPredictions <- function(data, data.kmeans) {
 getAccuracy <- function(data, data.kmeans) { 
 	predictedClass <- getPredictions(data, data.kmeans)
 	correct <- data$CLASS == predictedClass
-	print("accuracy:")
 	sum(correct) / length(correct)
 }
 
+doExperiment <- function(data, data_noClass) {
+    colors <- c("red", "green", "blue")
+    for (a in 1:3) {
+        acc <- vector(mode = "double" ,length = 15)
+        # wss <- vector(mode = "integer" ,length = 15)
 
-ctg.kmeans = kmeans(ctg_noClass,2000, iter.max = 20)
+        for (i in 1:15) {
+            acc[i] <- 0
+            repCount <- 50
+            for (rep in 1:repCount) {
+                kmeans.group <- kmeans(data_noClass, centers = i, iter.max=a*5)
+                # wss[i] <- kmeans.group$tot.withinss
+                acc[i] <- acc[i] + getAccuracy(data, kmeans.group)
+            }
+            acc[i] <- acc[i]/repCount
+        }
+
+        # CaĹkowita suma odlegĹoĹci wewnÄtrzgrupowych per liczba grup
+        # plot(1:15, wss, type = "b",
+        #     xlab = "Liczba grup",
+        #     ylab = "CaĹkowita suma odlegĹoĹci wewnÄtrzgrupowych")
+
+        if (a == 1) {
+            plot(1:15, acc, type = "b",
+                xlab = "Liczba grup",
+                ylab = "Accuracy", col=colors[a])
+        } else {
+            lines(1:15, acc, type = "b",
+                xlab = "Liczba grup",
+                ylab = "Accuracy", col=colors[a])
+        }
+    }
+    legend(8, 0.35, legend=c("iter.max = 10", "iter.max = 20", "iter.max = 30"),
+        col=colors, lty=1:2, cex=1.0)
+}
+
+doExperiment(ctg, ctg_noClass)
 
 
-head(getPredictions(ctg, ctg.kmeans))
-head(ctg$CLASS)
-getAccuracy(ctg, ctg.kmeans)
 
 
-# podgląd na 2 pierwszych atrybutach
-plot(ctg_noClass[, 1:2], col = ctg$CLASS)
-plot(ctg_noClass[1:2], col = getPredictions(ctg, ctg.kmeans))
-plot(ctg_noClass[1:2], col = getPredictions(ctg, ctg.kmeans) == ctg$CLASS)
-
+# ctg.kmeans = kmeans(ctg_noClass,2000, iter.max = 20)
+# head(getPredictions(ctg, ctg.kmeans))
+# head(ctg$CLASS)
+# getAccuracy(ctg, ctg.kmeans)
+# 
+# 
+# # podgląd na 2 pierwszych atrybutach
+# plot(ctg_noClass[, 1:2], col = ctg$CLASS)
+# plot(ctg_noClass[1:2], col = getPredictions(ctg, ctg.kmeans))
+# plot(ctg_noClass[1:2], col = getPredictions(ctg, ctg.kmeans) == ctg$CLASS)
