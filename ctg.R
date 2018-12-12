@@ -1,7 +1,11 @@
 #MED 2017Z Lab4, godz. 16
 #autor: Michał Sypetkowski
 library(fossil)
-library(gsubfn)
+library(gsubfn) # zwracanie kilku wartości z funkcji przy użyciu list
+
+if(packageVersion("gsubfn") < "0.7") {
+  stop("Too old gsubfn. Please update gsubfn to newer version.")
+}
 
 
 
@@ -27,64 +31,64 @@ ctgScaledCentered <- sweep(ctgCentered, 2, apply(ctgCentered, 2, function(x) {sq
 # 2. Eksperymenty =========================================
 
 getPredictions <- function(classes, data.kmeans) {
-	t <- table(classes,data.kmeans$cluster)
-	t <- as.data.frame.matrix(t) 
-	mapping <- apply(t, 2, which.max)
-	predictedClass <- mapping[data.kmeans$cluster]
-	stopifnot(length(classes) == length(predictedClass))
-	predictedClass
+  t <- table(classes,data.kmeans$cluster)
+  t <- as.data.frame.matrix(t) 
+  mapping <- apply(t, 2, which.max)
+  predictedClass <- mapping[data.kmeans$cluster]
+  stopifnot(length(classes) == length(predictedClass))
+  predictedClass
 }
 
 getAccuracy <- function(classes, data.kmeans) { 
-	predictedClass <- getPredictions(classes, data.kmeans)
-	correct <- classes == predictedClass
-	sum(correct) / length(correct)
+  predictedClass <- getPredictions(classes, data.kmeans)
+  correct <- classes == predictedClass
+  sum(correct) / length(correct)
 }
 
 maxGroups <- 15
 
 drawPlot <- function(data, ylab, color, first=F, ylim=NA) {
-    if (first==T) {
-        if (!is.na(ylim)) {
-            plot(1:maxGroups, data, type = "b",
-                xlab = "Groups count",
-                ylab = ylab, col=color, ylim=ylim)
-        } else {
-            plot(1:maxGroups, data, type = "b",
-                xlab = "Groups count",
-                ylab = ylab, col=color)
-        }
+  if (first==T) {
+    if (!is.na(ylim)) {
+      plot(1:maxGroups, data, type = "b",
+           xlab = "Groups count",
+           ylab = ylab, col=color, ylim=ylim)
     } else {
-        lines(1:maxGroups, data, type = "b",
-            xlab = "Groups count",
-            ylab = ylab, col=color)
+      plot(1:maxGroups, data, type = "b",
+           xlab = "Groups count",
+           ylab = ylab, col=color)
     }
+  } else {
+    lines(1:maxGroups, data, type = "b",
+          xlab = "Groups count",
+          ylab = ylab, col=color)
+  }
 }
 
 doExperiment <- function(classes, data_noClass, repCount=30, randiRepCount=4) {
-    acc <- vector(mode = "double" ,length = maxGroups)
-    randi <- vector(mode = "double" ,length = maxGroups)
-    wss <- vector(mode = "double" ,length = maxGroups)
-
-    for (i in 1:maxGroups) {
-        acc[i] <- 0
-        randi[i] <- 0
-        wss[i] <- 0
-        for (rep in 1:repCount) {
-            kmeans.group <- kmeans(data_noClass, centers = i, iter.max=20)
-            acc[i] <- acc[i] + getAccuracy(classes, kmeans.group)
-            if (rep <= randiRepCount) {
-                # Indeks randa ma mniejsze odchylenie (pozatym wolno się liczy), więc robimy mniej powtórzeń.
-                randi[i] <- randi[i] + rand.index(classes, kmeans.group$cluster)
-            }
-            wss[i] <- wss[i] + kmeans.group$tot.withinss
-        }
-        acc[i] <- acc[i]/repCount
-        randi[i] <- randi[i]/randiRepCount
-        wss[i] <- wss[i]/repCount
+  acc <- vector(mode = "double" ,length = maxGroups)
+  randi <- vector(mode = "double" ,length = maxGroups)
+  wss <- vector(mode = "double" ,length = maxGroups)
+  
+  for (i in 1:maxGroups) {
+    acc[i] <- 0
+    randi[i] <- 0
+    wss[i] <- 0
+    for (rep in 1:repCount) {
+      kmeans.group <- kmeans(data_noClass, centers = i, iter.max=20)
+      acc[i] <- acc[i] + getAccuracy(classes, kmeans.group)
+      if (rep <= randiRepCount) {
+        # Indeks randa ma mniejsze odchylenie (pozatym wolno się liczy), więc robimy mniej powtórzeń.
+        randi[i] <- randi[i] + rand.index(classes, kmeans.group$cluster)
+      }
+      wss[i] <- wss[i] + kmeans.group$tot.withinss
     }
-
-    list(acc, randi, wss)
+    acc[i] <- acc[i]/repCount
+    randi[i] <- randi[i]/randiRepCount
+    wss[i] <- wss[i]/repCount
+  }
+  
+  list(acc, randi, wss)
 }
 
 colors <- c("red", "green", "blue", "black", "orange")
@@ -107,13 +111,13 @@ drawPlot(acc1, color=colors[1], ylab="Accuracy", first=T)
 drawPlot(acc2, color=colors[2], ylab="Accuracy")
 drawPlot(acc3, color=colors[3], ylab="Accuracy")
 legend(8, 0.35, legend=c("Scaled", "Centered and Scaled", "Raw"),
-    col=colors, lty=1:2, cex=1.0)
+       col=colors, lty=1:2, cex=1.0)
 
 drawPlot(randi1,color=colors[1],  ylab="Rand index", first=T)
 drawPlot(randi2,color=colors[2],  ylab="Rand index")
 drawPlot(randi3,color=colors[3],  ylab="Rand index")
 legend(8, 0.35, legend=c("Scaled", "Centered and Scaled", "Raw"),
-    col=colors, lty=1:2, cex=1.0)
+       col=colors, lty=1:2, cex=1.0)
 
 
 # Wartości dla "surowych" danych są bardzo duże (bo wiele kolumn ma duże wartości, stąd duże odległości nawet wewnątrz grup)
@@ -121,8 +125,8 @@ legend(8, 0.35, legend=c("Scaled", "Centered and Scaled", "Raw"),
 maxVal <- max(max(wss1), max(wss2))
 drawPlot(wss1,color=colors[1],  ylab="Internal distances sum", first=T, ylim=c(0, maxVal))
 drawPlot(wss2,color=colors[2],  ylab="Internal distances sum")
-legend(8, 0.35, legend=c("Scaled", "Centered and Scaled", "Raw"),
-    col=colors, lty=1:2, cex=1.0)
+legend(8, 40000, legend=c("Scaled", "Centered and Scaled"),
+       col=colors, lty=1:2, cex=1.0)
 
 
 # 3. Wnioski
